@@ -1,7 +1,7 @@
 bl_info = {
     'name': 'Source Procedural Bone',
     'author': 'Β L Λ Ζ Ξ',
-    'version': (0, 1),
+    'version': (0, 15),
     'blender': (2, 79, 0),
     'location': 'View3D > Tool Shelf > Β L Λ Ζ Ξ',
     'description': 'Get basepos & rotation values for procedural bones',
@@ -30,7 +30,10 @@ def main(context):
         stringRot = ' '.join(str(round(n, 6)) for n in vectorRot)
         stringPos = ' '.join(str(round(n, 6)) for n in vectorPos)
         
-        return stringPos, stringRot, bone, bone.name
+        try:
+            return stringPos, stringRot, bone, bone.name, bone.parent.name
+        except:
+            return stringPos, stringRot, bone, bone.name, ''
 
 class ProceduralBone(bpy.types.Operator):
     bl_idname = 'blz.procedural'
@@ -41,6 +44,7 @@ class ProceduralBone(bpy.types.Operator):
         name = 'Transform Type',
         items = [
             ('NAME', 'Name', ''),
+            ('NAME + PARENT', 'Name + parent', ''),
             ('TRANSLATION', 'Translation', ''),
             ('ROTATION', 'Rotation', ''),
         ],
@@ -64,10 +68,14 @@ class ProceduralBone(bpy.types.Operator):
         elif self.type == 'TRANSLATION':
             context.window_manager.clipboard = result[0]
             self.report({'INFO'}, self.type.capitalize()+': '+result[0])
+        elif self.type == 'NAME + PARENT':
+            bone_name_parent = result[3].replace('ValveBiped.','') + ' ' + result[4].replace('ValveBiped.','')
+            context.window_manager.clipboard = bone_name_parent
+            self.report({'INFO'}, self.type.capitalize()+': '+ bone_name_parent)
         else:
             bone_name = result[3].replace('ValveBiped.','')
             context.window_manager.clipboard = bone_name
-            self.report({'INFO'}, self.type.capitalize()+': '+bone_name)
+            self.report({'INFO'}, self.type.capitalize()+': '+ bone_name)
         
         return {'FINISHED'}
 
@@ -96,17 +104,16 @@ class ProceduralBonePanel(bpy.types.Panel):
                 
                 row = layout.row()   
                 row.operator('blz.procedural', text='Copy bone name').type = 'NAME'
+                row.operator('blz.procedural', text='Copy bone + parent').type = 'NAME + PARENT'
                 
                 row = layout.row()        
-                row.label(text='Basepos: '+result[0])
-                
-                row = layout.row()
-                row.operator('blz.procedural', text='Copy translation').type = 'TRANSLATION'
+                row.label(text='Translation: '+result[0])
                 
                 row = layout.row()        
                 row.label(text='Rotation: '+result[1])
                 
                 row = layout.row()
+                row.operator('blz.procedural', text='Copy translation').type = 'TRANSLATION'
                 row.operator('blz.procedural', text='Copy rotation').type = 'ROTATION'
             else:
                 row = layout.row()        
@@ -117,6 +124,7 @@ def ProceduralBoneMenu(self, context):
     layout.separator()
     
     layout.operator('blz.procedural', text='Copy bone name').type = 'NAME'
+    layout.operator('blz.procedural', text='Copy name + parent').type = 'NAME + PARENT'
     layout.operator('blz.procedural', text='Copy translation').type = 'TRANSLATION'
     layout.operator('blz.procedural', text='Copy rotation').type = 'ROTATION'
     
