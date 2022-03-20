@@ -1,39 +1,69 @@
 bl_info = {
     'name': 'Source Procedural Bone',
     'author': 'Β L Λ Ζ Ξ',
-    'version': (0, 15),
+    'version': (0, 2),
     'blender': (2, 79, 0),
     'location': 'View3D > Tool Shelf > Β L Λ Ζ Ξ',
-    'description': 'Get basepos & rotation values for procedural bones',
+    'description': 'Get <helper> and <trigger> for $proceduralbones. Modified from SourceOps.',
     'warning': '',
     'wiki_url': '',
     'category': 'Scene',
     }
     
 import bpy
+from bpy.props import *
 import math
 
 def main(context):
+    scn = context.scene
+    ob = bpy.context.object
     bone = bpy.context.active_pose_bone
     
-    if bone is not None:
-        if bone.parent:
-        	parent = bone.parent.matrix.inverted_safe()
-        	matrix = parent * bone.matrix
-        else:
-        	matrix = bone.matrix
+    if ob is not None:
+        if ob.type == 'ARMATURE':
+            bone2 = ob.pose.bones.get(scn.Controller)
+            
+            if bone and bone2 is not None:
+                if bone.parent:
+                	parent = bone.parent.matrix.inverted_safe()
+                	matrix = parent * bone.matrix
+                else:
+                	matrix = bone.matrix
 
-        vectorRot = matrix.to_euler()
-        vectorRot = [math.degrees(n) for n in vectorRot]
-        vectorPos = matrix.to_translation().xyz
+                vectorRot = matrix.to_euler()
+                vectorRot = [math.degrees(n) for n in vectorRot]
+                vectorPos = matrix.to_translation().xyz
 
-        stringRot = ' '.join(str(round(n, 6)) for n in vectorRot)
-        stringPos = ' '.join(str(round(n, 6)) for n in vectorPos)
-        
-        try:
-            return stringPos, stringRot, bone, bone.name, bone.parent.name
-        except:
-            return stringPos, stringRot, bone, bone.name, ''
+                stringRot = ' '.join(str(round(n, 6)) for n in vectorRot)
+                stringPos = ' '.join(str(round(n, 6)) for n in vectorPos)
+                
+                if bone2.parent:
+                	parent2 = bone2.parent.matrix.inverted_safe()
+                	matrix2 = parent2 * bone2.matrix
+                else:
+                	matrix2 = bone2.matrix
+
+                vectorRot2 = matrix2.to_euler()
+                vectorRot2 = [math.degrees(n) for n in vectorRot2]
+                vectorPos2 = matrix2.to_translation().xyz
+
+                stringRot2 = ' '.join(str(round(n, 6)) for n in vectorRot2)
+                stringPos2 = ' '.join(str(round(n, 6)) for n in vectorPos2)
+           
+                try:
+                    return stringPos, stringRot, bone, bone.name, bone.parent.name, stringRot2
+                except:
+                    return stringPos, stringRot, bone, bone.name, '', stringRot2
+
+def initSceneProperties(scn):
+    bpy.types.Scene.MyInt = IntProperty(
+        name = "AoI", 
+        description = "Enter an integer")
+    scn['MyInt'] = 90
+
+    bpy.types.Scene.arma_name = bpy.props.StringProperty()
+    bpy.types.Scene.Controller = bpy.props.StringProperty()
+initSceneProperties(bpy.context.scene)
 
 class ProceduralBone(bpy.types.Operator):
     bl_idname = 'blz.procedural'
@@ -43,10 +73,8 @@ class ProceduralBone(bpy.types.Operator):
     type = bpy.props.EnumProperty(
         name = 'Transform Type',
         items = [
-            ('NAME', 'Name', ''),
-            ('NAME + PARENT', 'Name + parent', ''),
-            ('TRANSLATION', 'Translation', ''),
-            ('ROTATION', 'Rotation', ''),
+            ('HELPER', 'Helper', ''),
+            ('TRIGGER', 'Trigger', ''),
         ],
     )
 	
@@ -56,87 +84,108 @@ class ProceduralBone(bpy.types.Operator):
 
     def execute(self, context):
         result = main(context)
-        bone = result[2]
-
-        if bone is None:
-            self.report({'INFO'}, 'No active bone')
-            return {'CANCELLED'}
+        scn = context.scene
+        ob = bpy.context.object
+        
+        if result is not None:
+            bone = result[2]
             
-        if self.type == 'ROTATION':
-            context.window_manager.clipboard = result[1]
-            self.report({'INFO'}, self.type.capitalize()+': '+result[1])
-        elif self.type == 'TRANSLATION':
-            context.window_manager.clipboard = result[0]
-            self.report({'INFO'}, self.type.capitalize()+': '+result[0])
-        elif self.type == 'NAME + PARENT':
-            bone_name_parent = result[3].replace('ValveBiped.','') + ' ' + result[4].replace('ValveBiped.','')
-            context.window_manager.clipboard = bone_name_parent
-            self.report({'INFO'}, self.type.capitalize()+': '+ bone_name_parent)
+            if ob.type == 'ARMATURE':  
+                pb = ob.pose.bones.get(scn.Controller)
+                parent = pb.parent.name
+                
+                if bone is None:
+                    self.report({'INFO'}, 'No active bone')
+                    return {'CANCELLED'}
+                else:
+                    if self.type == 'HELPER':
+                        bone_name_parent = result[3].replace('ValveBiped.','') + ' ' + result[4].replace('ValveBiped.','')
+                        bone_controller_parent = parent.replace('ValveBiped.','') + ' ' + scn.Controller.replace('ValveBiped.','')
+                        context.window_manager.clipboard = "<helper> " + bone_name_parent + ' ' + bone_controller_parent + '\n<basepos> ' + result[0] + "\n"
+                        self.report({'INFO'}, 'Copied <helper> to clipboard!')
+                    elif self.type == 'TRIGGER':
+                        context.window_manager.clipboard = "<trigger> " + str(scn.MyInt) + "\t" + result[5] + "\t" + result[1] + "\t" + "0 0 0" + "\n"
+                        self.report({'INFO'}, 'Copied <trigger> to clipboard!')
+                    return {'FINISHED'}
         else:
-            bone_name = result[3].replace('ValveBiped.','')
-            context.window_manager.clipboard = bone_name
-            self.report({'INFO'}, self.type.capitalize()+': '+ bone_name)
-        
-        return {'FINISHED'}
-
-class ProceduralBonePanel(bpy.types.Panel):
-    bl_label = 'Procedural Bones'
-    bl_idname = 'OBJECT_PT_procedural'
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
+            return {'FINISHED'}
+ 
+class panel1(bpy.types.Panel):
+    bl_idname = "panel.panel1"
+    bl_label = "Procedural Bones"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
     bl_category = 'Β L Λ Ζ Ξ'
-
+    
     def draw(self, context):
-        result = main(context)     
-        layout = self.layout          
-        ls = []
+        result = main(context)   
+        layout = self.layout
+        scn = context.scene
+        ob = bpy.context.object
         
-        for obj in bpy.data.objects:
-            ls.append(obj.type)
-        
-        if 'ARMATURE' not in ls:    
-            row = layout.row()        
-            row.label(text='Armature not found!', icon='ERROR')
-        else:        
-            if result is not None:
-                row = layout.row()        
-                row.label(text='Active Bone: '+result[3])
+        if ob is None:   
+            row = layout.row()   
+            row.label(text='Selected Armature: None')    
+        else:
+            if ob.type == 'ARMATURE':  
+                pb = ob.pose.bones.get(scn.Controller)
+                armature = ob.data
+                                
+                try:
+                    parent = pb.parent.name
+                except:
+                    parent = ''
                 
-                row = layout.row()   
-                row.operator('blz.procedural', text='Copy bone name').type = 'NAME'
-                row.operator('blz.procedural', text='Copy bone + parent').type = 'NAME + PARENT'
+                row = layout.row() 
+                row.label(text='Selected armature: ' + armature.name)
                 
-                row = layout.row()        
-                row.label(text='Translation: '+result[0])
-                
-                row = layout.row()        
-                row.label(text='Rotation: '+result[1])
+                layout.prop(scn, 'MyInt')
+                arma = bpy.data.armatures.get(scn.arma_name)       
+                   
+                row = layout.row()
+                row.prop_search(scn, "Controller", armature, "bones")
                 
                 row = layout.row()
-                row.operator('blz.procedural', text='Copy translation').type = 'TRANSLATION'
-                row.operator('blz.procedural', text='Copy rotation').type = 'ROTATION'
+                row.label(text='Controller parent: ' + parent)     
+                
+                if result is not None:
+                    row = layout.row()        
+                    row.label(text='Controller rotation: ' + result[5])
+                    
+                    row = layout.row()        
+                    row.label(text='Helper: '+result[3])
+                    
+                    row = layout.row()        
+                    row.label(text='Helper parent: '+result[4])
+                    
+                    row = layout.row()        
+                    row.label(text='Helper rotation: '+result[1])
+                    
+                    row = layout.row()        
+                    row.label(text='Helper translation: '+result[0])
+                else:
+                    row = layout.row()        
+                    row.label(text='Controller rotation: ')
+                    
+                    row = layout.row()        
+                    row.label(text='Helper: ')
+                    
+                    row = layout.row()        
+                    row.label(text='Helper parent: ')
+                    
+                    row = layout.row()        
+                    row.label(text='Helper rotation: ')  
+                    
+                    row = layout.row()        
+                    row.label(text='Helper translation: ')                
+                                    
+                row = layout.row()
+                row.operator('blz.procedural', text='Copy <helper>').type = 'HELPER'
+                
+                row = layout.row()
+                row.operator('blz.procedural', text='Copy <trigger>').type = 'TRIGGER'
             else:
-                row = layout.row()        
-                row.label(text='Armature must be in pose mode!', icon='INFO')
-        
-def ProceduralBoneMenu(self, context):
-    layout = self.layout
-    layout.separator()
-    
-    layout.operator('blz.procedural', text='Copy bone name').type = 'NAME'
-    layout.operator('blz.procedural', text='Copy name + parent').type = 'NAME + PARENT'
-    layout.operator('blz.procedural', text='Copy translation').type = 'TRANSLATION'
-    layout.operator('blz.procedural', text='Copy rotation').type = 'ROTATION'
-    
-def register():
-    bpy.utils.register_class(ProceduralBone)
-    bpy.utils.register_class(ProceduralBonePanel)
-    bpy.types.VIEW3D_MT_pose_specials.append(ProceduralBoneMenu)
-
-def unregister():
-    bpy.utils.unregister_class(ProceduralBone)
-    bpy.utils.unregister_class(ProceduralBonePanel)
-    bpy.types.VIEW3D_MT_pose_specials.remove(ProceduralBoneMenu)
-
-if __name__ == '__main__':
-    register()
+                row = layout.row()   
+                row.label(text='Selected Armature: None')  
+                
+bpy.utils.register_module(__name__)
