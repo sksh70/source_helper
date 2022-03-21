@@ -1,7 +1,7 @@
 bl_info = {
     'name': 'Source Procedural Bone',
     'author': 'Β L Λ Ζ Ξ',
-    'version': (0, 2),
+    'version': (0, 25),
     'blender': (2, 79, 0),
     'location': 'View3D > Tool Shelf > Β L Λ Ζ Ξ',
     'description': 'Get <helper> and <trigger> for $proceduralbones. Modified from SourceOps.',
@@ -55,16 +55,6 @@ def main(context):
                 except:
                     return stringPos, stringRot, bone, bone.name, '', stringRot2
 
-def initSceneProperties(scn):
-    bpy.types.Scene.MyInt = IntProperty(
-        name = "AoI", 
-        description = "Enter an integer")
-    scn['MyInt'] = 90
-
-    bpy.types.Scene.arma_name = bpy.props.StringProperty()
-    bpy.types.Scene.Controller = bpy.props.StringProperty()
-initSceneProperties(bpy.context.scene)
-
 class ProceduralBone(bpy.types.Operator):
     bl_idname = 'blz.procedural'
     bl_label = 'Pose Bone Transforms'
@@ -92,7 +82,11 @@ class ProceduralBone(bpy.types.Operator):
             
             if ob.type == 'ARMATURE':  
                 pb = ob.pose.bones.get(scn.Controller)
-                parent = pb.parent.name
+
+                try:
+                    parent = pb.parent.name
+                except:
+                    parent = ''
                 
                 if bone is None:
                     self.report({'INFO'}, 'No active bone')
@@ -186,6 +180,20 @@ class panel1(bpy.types.Panel):
                 row.operator('blz.procedural', text='Copy <trigger>').type = 'TRIGGER'
             else:
                 row = layout.row()   
-                row.label(text='Selected Armature: None')  
+                row.label(text='Selected Armature: None')                  
                 
-bpy.utils.register_module(__name__)
+def register():
+    bpy.utils.register_module(__name__)
+    bpy.types.Scene.MyInt = IntProperty(
+        name = "AoI", 
+        description = "Enter an integer",
+        default = 90)
+
+    bpy.types.Scene.arma_name = bpy.props.StringProperty()
+    bpy.types.Scene.Controller = bpy.props.StringProperty()    
+
+def unregister():
+    bpy.utils.unregister_module(__name__)
+
+if __name__ == '__main__':
+    register()
