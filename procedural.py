@@ -1,7 +1,7 @@
 bl_info = {
     'name': 'Source Procedural Bone',
     'author': 'Β L Λ Ζ Ξ',
-    'version': (0, 25),
+    'version': (0, 35),
     'blender': (2, 79, 0),
     'location': 'View3D > Tool Shelf > Β L Λ Ζ Ξ',
     'description': 'Get <helper> and <trigger> for $proceduralbones. Modified from SourceOps.',
@@ -33,6 +33,7 @@ def main(context):
                 vectorRot = matrix.to_euler()
                 vectorRot = [math.degrees(n) for n in vectorRot]
                 vectorPos = matrix.to_translation().xyz
+                vectorPos = [n * round(scn.MyFloat,3) for n in vectorPos]
 
                 stringRot = ' '.join(str(round(n, 6)) for n in vectorRot)
                 stringPos = ' '.join(str(round(n, 6)) for n in vectorPos)
@@ -46,6 +47,7 @@ def main(context):
                 vectorRot2 = matrix2.to_euler()
                 vectorRot2 = [math.degrees(n) for n in vectorRot2]
                 vectorPos2 = matrix2.to_translation().xyz
+                vectorPos2 = [n * round(scn.MyFloat,3) for n in vectorPos2]
 
                 stringRot2 = ' '.join(str(round(n, 6)) for n in vectorRot2)
                 stringPos2 = ' '.join(str(round(n, 6)) for n in vectorPos2)
@@ -96,7 +98,7 @@ class ProceduralBone(bpy.types.Operator):
                         bone_name_parent = result[3].replace('ValveBiped.','') + ' ' + result[4].replace('ValveBiped.','')
                         bone_controller_parent = parent.replace('ValveBiped.','') + ' ' + scn.Controller.replace('ValveBiped.','')
                         context.window_manager.clipboard = "<helper> " + bone_name_parent + ' ' + bone_controller_parent + '\n<basepos> ' + result[0] + "\n"
-                        self.report({'INFO'}, 'Copied <helper> to clipboard!')
+                        self.report({'INFO'}, 'Copied <helper> to clipboard!'+ result[0])
                     elif self.type == 'TRIGGER':
                         context.window_manager.clipboard = "<trigger> " + str(scn.MyInt) + "\t" + result[5] + "\t" + result[1] + "\t" + "0 0 0" + "\n"
                         self.report({'INFO'}, 'Copied <trigger> to clipboard!')
@@ -135,9 +137,12 @@ class panel1(bpy.types.Panel):
                 
                 layout.prop(scn, 'MyInt')
                 arma = bpy.data.armatures.get(scn.arma_name)       
+                
+                layout.prop(scn, 'MyFloat')
                    
                 row = layout.row()
                 row.prop_search(scn, "Controller", armature, "bones")
+                
                 
                 row = layout.row()
                 row.label(text='Controller parent: ' + parent)     
@@ -188,6 +193,11 @@ def register():
         name = "AoI", 
         description = "Enter an integer",
         default = 90)
+        
+    bpy.types.Scene.MyFloat = FloatProperty(
+        name = "Scale", 
+        description = "Enter scale",
+        default = 1.000)
 
     bpy.types.Scene.arma_name = bpy.props.StringProperty()
     bpy.types.Scene.Controller = bpy.props.StringProperty()    
